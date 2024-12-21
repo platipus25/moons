@@ -17,9 +17,9 @@ struct Cli {
     #[arg(short, long, default_value_t = 1.0)]
     gamma: f32,
 
-    #[arg(short, long, default_value_t = 30)]
+    #[arg(long, default_value_t = 30)]
     width: u32,
-    #[arg(short, long, default_value_t = 30)]
+    #[arg(long, default_value_t = 30)]
     height: u32,
 }
 

@@ -1,17 +1,39 @@
+use clap::Parser;
 use image::{GenericImageView, ImageReader, Pixel};
 use itertools::Itertools;
 use rayon::iter::ParallelIterator;
-use std::error;
+use std::{error, path::PathBuf};
 
 static MOONS: [&str; 8] = ["🌑", "🌒", "🌓", "🌔", "🌕", "🌖", "🌗", "🌘"];
 
+/// Render images as grids of emoji moons
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Cli {
+    /// The input image file.
+    file: PathBuf,
+
+    /// The gamma correction to apply to the image before converting.
+    #[arg(short, long, default_value_t = 1.0)]
+    gamma: f32,
+
+    #[arg(short, long, default_value_t = 30)]
+    width: u32,
+    #[arg(short, long, default_value_t = 30)]
+    height: u32,
+}
+
 fn main() -> Result<(), Box<dyn error::Error>> {
-    println!("Hello, world!");
-    let img = ImageReader::open("moonception.png")?.decode()?;
-    let resized = img.resize(30, 30, image::imageops::FilterType::Triangle);
+    let args = Cli::parse();
+
+    let img = ImageReader::open(args.file)?.decode()?;
+    let resized = img.resize(
+        args.width,
+        args.height,
+        image::imageops::FilterType::Triangle,
+    );
 
     let gradient = resized.filter3x3(&[0.0, 0.0, 0.0, -1.0, 0.0, 1.0, 0.0, 0.0, 0.0]);
-    gradient.save("grad.png")?;
 
     let luma = resized.into_luma8();
     let moon_pixels: Vec<&str> = luma
@@ -19,9 +41,8 @@ fn main() -> Result<(), Box<dyn error::Error>> {
         .map(|(x, y, value)| {
             let gradient = gradient.get_pixel(x, y).to_luma_alpha().0[0];
             let luma = value.to_luma().0[0];
-            println!("{}", gradient);
 
-            select_moon(luma, gradient)
+            select_moon(luma, gradient, args.gamma)
         })
         .collect();
 
@@ -37,11 +58,10 @@ fn main() -> Result<(), Box<dyn error::Error>> {
     Ok(())
 }
 
-fn select_moon(luma: u8, gradient: u8) -> &'static str {
+fn select_moon(luma: u8, gradient: u8, gamma: f32) -> &'static str {
     // Adjust gamma
-    let gamma = 1.2;
-    let float_luma = luma as f32 / u8::MAX as f32;
-    let adjusted_luma = float_luma.powf(gamma);
+    let luma = luma as f32 / u8::MAX as f32;
+    let adjusted_luma = luma.powf(gamma);
 
     // Split into 5 brightness levels
     let brightness = (adjusted_luma * 5.0).round() as u8;
